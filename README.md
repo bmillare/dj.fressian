@@ -2,11 +2,11 @@
 
 A convenience wrapper for fressian, the binary serial/deserializer used by datomic
 
-# Implementation
+## Implementation
 
 Currently it is a blatant copy/paste of `org.fressian.api`. This library exists merely for convenience.
 
-# Usage
+## Usage
 
 ```clojure
 (require '[dj.fressian :as df])
@@ -19,6 +19,6 @@ Currently it is a blatant copy/paste of `org.fressian.api`. This library exists 
 ;;> {:x 3e-9, x -1}
 ```
 
-# Resources
+## Resources
 
 https://github.com/Datomic/fressian
