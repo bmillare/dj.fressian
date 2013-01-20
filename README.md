@@ -12,7 +12,7 @@ Currently it is a blatant copy/paste of `org.fressian.api`. This library exists 
 (require '[dj.fressian :as df])
 
 (df/poop (clojure.java.io/file "test.bin")
-	 {:x 3e-9
+         {:x 3e-9
           'x -1})
 (df/eat (clojure.java.io/file "test.bin"))
 
