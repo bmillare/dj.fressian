@@ -167,6 +167,6 @@ Supports any starting point that clojure.java.io/input-stream can handle
 returns the object
 "
   [in]
-  (dj.fressian/defressian (dj.io/file dj/system-root "tmp/test.bin")
-  :handlers dj.fressian/clojure-read-handlers))
+  (dj.fressian/defressian in
+  :handlers clojure-read-handlers))
 
