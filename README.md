@@ -4,7 +4,7 @@ A convenience wrapper for fressian, the binary serial/deserializer used by datom
 
 ## Implementation
 
-Currently it is a blatant copy/paste of `org.fressian.api`. This library exists merely for convenience.
+Currently it is a blatant copy/paste of `org.fressian.api`. This library exists merely for convenience. I also added a handler for vectors.
 
 ## Usage
 
