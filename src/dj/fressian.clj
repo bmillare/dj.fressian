@@ -119,7 +119,21 @@
     (reify WriteHandler (write [_ w s]
                                (.writeTag w "sym" 2)
                                (.writeObject w (namespace s))
-                               (.writeObject w (name s))))}})
+                               (.writeObject w (name s))))}
+   ;; Note, you cannot override core handlers, if we want to read a
+   ;; list as a vector you must tag it first when written then make a
+   ;; custom reader for that tag type
+   clojure.lang.PersistentVector
+   {"vec"
+    (reify WriteHandler (write [_ w s]
+                               (.writeTag w "vec" 1)
+                          ;; Note that when delegating writing,
+                          ;; .writeObject dispatches based on existing
+                          ;; handlers, its easy to get a SO if you
+                          ;; keep delegating to yourself. Therefore
+                          ;; you must be narrowing down the handler in
+                          ;; some way.
+                               (.writeList w s)))}})
 
 (def clojure-read-handlers
   {"key"
@@ -133,7 +147,10 @@
                             (let [kvs ^java.util.List (.readObject rdr)]
                               (if (< (.size kvs) 16)
                                 (clojure.lang.PersistentArrayMap. (.toArray kvs))
-                                (clojure.lang.PersistentHashMap/create (seq kvs))))))})
+                                (clojure.lang.PersistentHashMap/create (seq kvs))))))
+   "vec"
+   (reify ReadHandler (read [_ rdr tag component-count]
+                            (vec (.readObject rdr))))})
 
 (extend ByteBuffer
   io/IOFactory
@@ -152,7 +169,7 @@ Supports any endpoint that clojure.java.io/output-stream can handle
 obj: your object to emit
 "
   [out obj]
-  (dj.fressian/fressian out
+  (fressian out
                         obj
                         :handlers clojure-write-handlers))
 
@@ -167,6 +184,6 @@ Supports any starting point that clojure.java.io/input-stream can handle
 returns the object
 "
   [in]
-  (dj.fressian/defressian in
+  (defressian in
   :handlers clojure-read-handlers))
 
