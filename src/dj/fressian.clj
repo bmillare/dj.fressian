@@ -170,8 +170,8 @@ obj: your object to emit
 "
   [out obj]
   (fressian out
-                        obj
-                        :handlers clojure-write-handlers))
+            obj
+            :handlers clojure-write-handlers))
 
 (defn eat
   "
@@ -185,5 +185,5 @@ returns the object
 "
   [in]
   (defressian in
-  :handlers clojure-read-handlers))
+    :handlers clojure-read-handlers))
 
