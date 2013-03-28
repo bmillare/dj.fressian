@@ -18,7 +18,8 @@
   [o]
   (if (map? o)
     (reify ILookup
-           (valAt [_ k] (get o k)))
+           (valAt [_ k] (or (get o k)
+                            (get o (.getSuperclass k)))))
     o))
 
 (defn write-handler-lookup
@@ -107,50 +108,62 @@
           objects
           (recur (conj objects obj)))))))
 
+(defmacro ->write-tag-handler
+  "args must be [writer data-object]"
+  [tag size args & body]
+  `(let [tag# ~tag]
+     {tag#
+      (reify WriteHandler (~'write ~(into [(gensym)] args)
+                            (.writeTag ~(first args) tag# ~size)
+                            ~@body))}))
+
 (def clojure-write-handlers
   {clojure.lang.Keyword
-   {"key"
-    (reify WriteHandler (write [_ w s]
-                               (.writeTag w "key" 2)
-                               (.writeObject w (namespace s))
-                               (.writeObject w (name s))))}
+   (->write-tag-handler "key" 2
+                        [w s]
+                        (.writeObject w (namespace s))
+                        (.writeObject w (name s)))
    clojure.lang.Symbol
-   {"sym"
-    (reify WriteHandler (write [_ w s]
-                               (.writeTag w "sym" 2)
-                               (.writeObject w (namespace s))
-                               (.writeObject w (name s))))}
+   (->write-tag-handler "sym" 2
+                        [w s]
+                        (.writeObject w (namespace s))
+                        (.writeObject w (name s)))
    ;; Note, you cannot override core handlers, if we want to read a
    ;; list as a vector you must tag it first when written then make a
    ;; custom reader for that tag type
    clojure.lang.PersistentVector
-   {"vec"
-    (reify WriteHandler (write [_ w s]
-                               (.writeTag w "vec" 1)
-                          ;; Note that when delegating writing,
-                          ;; .writeObject dispatches based on existing
-                          ;; handlers, its easy to get a SO if you
-                          ;; keep delegating to yourself. Therefore
-                          ;; you must be narrowing down the handler in
-                          ;; some way.
-                               (.writeList w s)))}})
+   (->write-tag-handler "vec" 1
+                        [w s]
+                        ;; Note that when delegating writing,
+                        ;; .writeObject dispatches based on existing
+                        ;; handlers, its easy to get a SO if you
+                        ;; keep delegating to yourself. Therefore
+                        ;; you must be narrowing down the handler in
+                        ;; some way.
+                        (.writeList w s))})
+
+(defmacro ->read-tag-handler
+  "args must be [reader data-object]"
+  [[reader] & body]
+  `(reify ReadHandler (~'read ~[(gensym) reader (gensym) (gensym)]
+                        ~@body)))
 
 (def clojure-read-handlers
   {"key"
-   (reify ReadHandler (read [_ rdr tag component-count]
-                            (keyword (.readObject rdr) (.readObject rdr))))
+   (->read-tag-handler [rdr]
+                       (keyword (.readObject rdr) (.readObject rdr)))
    "sym"
-   (reify ReadHandler (read [_ rdr tag component-count]
-                            (symbol (.readObject rdr) (.readObject rdr))))
+   (->read-tag-handler [rdr]
+                       (symbol (.readObject rdr) (.readObject rdr)))
    "map"
-   (reify ReadHandler (read [_ rdr tag component-count]
-                            (let [kvs ^java.util.List (.readObject rdr)]
-                              (if (< (.size kvs) 16)
-                                (clojure.lang.PersistentArrayMap. (.toArray kvs))
-                                (clojure.lang.PersistentHashMap/create (seq kvs))))))
+   (->read-tag-handler [rdr]
+                       (let [kvs ^java.util.List (.readObject rdr)]
+                         (if (< (.size kvs) 16)
+                           (clojure.lang.PersistentArrayMap. (.toArray kvs))
+                           (clojure.lang.PersistentHashMap/create (seq kvs)))))
    "vec"
-   (reify ReadHandler (read [_ rdr tag component-count]
-                            (vec (.readObject rdr))))})
+   (->read-tag-handler [rdr]
+                       (vec (.readObject rdr)))})
 
 (extend ByteBuffer
   io/IOFactory
@@ -158,7 +171,23 @@
     :make-input-stream (fn [x opts] (io/make-input-stream
                                      (ByteBufferInputStream. x) opts))))
 
-(defn poop
+(defn ->poop-fn
+  "specify your own default handlers"
+  [handlers]
+  (fn [out obj]
+    (with-open [os (io/output-stream out)]
+      (let [writer (create-writer os handlers)]
+        (.writeObject writer obj)))))
+
+(defn ->eat-fn
+  "specify your own default handlers"
+  [handlers]
+  (fn [in]
+    (let [fin (create-reader in handlers)
+          result (.readObject fin)]
+      result)))
+
+(def poop
   "
 Convenience wrapper over fressian, provides default handlers
 
@@ -168,12 +197,9 @@ Supports any endpoint that clojure.java.io/output-stream can handle
 
 obj: your object to emit
 "
-  [out obj]
-  (fressian out
-            obj
-            :handlers clojure-write-handlers))
+  (->poop-fn clojure-write-handlers))
 
-(defn eat
+(def eat
   "
 Convenience wrapper over deffressian, provides default handlers
 
@@ -183,7 +209,5 @@ Supports any starting point that clojure.java.io/input-stream can handle
 
 returns the object
 "
-  [in]
-  (defressian in
-    :handlers clojure-read-handlers))
+  (->eat-fn clojure-read-handlers))
 
