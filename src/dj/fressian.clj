@@ -19,7 +19,8 @@
   (if (map? o)
     (reify ILookup
            (valAt [_ k] (or (get o k)
-                            (get o (.getSuperclass k)))))
+                            (get o (.getSuperclass k))
+                            (get o (.getSuperclass (.getSuperclass k))))))
     o))
 
 (defn write-handler-lookup
