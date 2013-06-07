@@ -164,7 +164,10 @@
                            (clojure.lang.PersistentHashMap/create (seq kvs)))))
    "vec"
    (->read-tag-handler [rdr]
-                       (vec (.readObject rdr)))})
+                       (vec (.readObject rdr)))
+   "inst"
+   (->read-tag-handler [rdr]
+                       (java.util.Date. (.readObject rdr)))})
 
 (extend ByteBuffer
   io/IOFactory
